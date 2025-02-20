@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIIRS GeoTIFF on Leaflet</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { height: 500px; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/georaster"></script>
+    <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
+
+    <script>
+        // Inisialisasi peta
+        var map = L.map('map');
+
+        // Tambahkan layer OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Load file GeoTIFF VIIRS
+        fetch("raster_latest (2).tif")
+            .then(response => response.arrayBuffer())
+            .then(arrayBuffer => {
+                parseGeoraster(arrayBuffer).then(georaster => {
+                    console.log("GeoRaster:", georaster);
+
+                    var layer = new GeoRasterLayer({
+                        georaster: georaster,
+                        opacity: 0.8, // Transparansi layer
+                        resolution: 6000, // Sesuaikan dengan resolusi VIIRS 6 km
+                        resamplingMethod: "nearest" // Agar tidak mengubah nilai asli data
+                    });
+
+                    layer.addTo(map);
+                    map.fitBounds(layer.getBounds()); // Fokus ke area GeoTIFF
+                });
+            });
+    </script>
+
+</body>
+</html>
