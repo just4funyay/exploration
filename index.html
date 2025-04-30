@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css"/>
+    <style>
+      #map {
+        bottom: 0;
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 0;
+      }
+      .legend {
+        background: white;
+        line-height: 1.2em;
+        padding: 10px;
+        font-size: 12px;
+        box-shadow: 0 0 5px rgba(0,0,0,0.4);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/georaster"></script>
+    <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
+    <script>
+        var map = L.map('map').setView([ -6.1751, 106.8650 ], 10); // Jakarta
+
+        // Basemap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Interpolasi warna (kontinyu)
+        function interpolateColor(color1, color2, factor) {
+            const hex = (x) => {
+                const h = Math.round(x).toString(16);
+                return h.length === 1 ? '0' + h : h;
+            };
+
+            const r1 = parseInt(color1.slice(1, 3), 16);
+            const g1 = parseInt(color1.slice(3, 5), 16);
+            const b1 = parseInt(color1.slice(5, 7), 16);
+
+            const r2 = parseInt(color2.slice(1, 3), 16);
+            const g2 = parseInt(color2.slice(3, 5), 16);
+            const b2 = parseInt(color2.slice(5, 7), 16);
+
+            const r = r1 + (r2 - r1) * factor;
+            const g = g1 + (g2 - g1) * factor;
+            const b = b1 + (b2 - b1) * factor;
+
+            return '#' + hex(r) + hex(g) + hex(b);
+        }
+
+        function getColor(value) {
+            const min = 0.05;
+            const max = 1;
+            const clamped = Math.min(Math.max(value, min), max);
+            const factor = (clamped - min) / (max - min);
+            return interpolateColor('#FFEDA0', '#800026', factor);
+        }
+
+        // Legenda gradasi
+        var legend = L.control({ position: 'bottomleft' });
+        legend.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'legend');
+            var gradientSteps = 80;
+            var min = 0.05;
+            var max = 1;
+            var step = (max - min) / gradientSteps;
+
+            for (let i = 0; i <= gradientSteps; i++) {
+                let value = min + i * step;
+                let next = min + (i + 1) * step;
+                div.innerHTML +=
+                    '<i style="background:' + getColor(value) + ';width:20px;height:10px;display:inline-block;margin-right:5px;"></i>' +
+                    value.toFixed(2) + (next <= max ? '&ndash;' + next.toFixed(2) : '+') + '<br>';
+            }
+            return div;
+        };
+        legend.addTo(map);
+
+        // Load GeoTIFF
+        fetch("raster_latest.tif")
+            .then(response => response.arrayBuffer())
+            .then(arrayBuffer => {
+                parseGeoraster(arrayBuffer).then(georaster => {
+                    var layer = new GeoRasterLayer({
+                        georaster: georaster,
+                        opacity: 0.8,
+                        resolution: 6,
+                        resamplingMethod: "nearest",
+                        pixelValuesToColorFn: (value) => getColor(value)
+                    });
+                    layer.addTo(map);
+                    map.fitBounds(layer.getBounds());
+                });
+            });
+    </script>
+  </body>
+</html>
